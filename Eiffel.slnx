@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Eiffel/Eiffel.csproj" Id="2659bee8-0dd8-4cc6-8011-adecd873d684" />
+  <Project Path="EiffelPatcher/EiffelPatcher.csproj" />
+</Solution>
