@@ -47,6 +47,7 @@
   <ItemGroup>
     <Compile Include="Helpers\JsonHelper.cs" />
     <Compile Include="Loader.cs" />
+    <Compile Include="Mod\IMod.cs" />
     <Compile Include="Mod\Info.cs" />
     <Compile Include="Logger.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

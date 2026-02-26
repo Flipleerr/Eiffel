@@ -43,12 +43,17 @@ internal class Program
         var loaderAssembly = AssemblyDefinition.ReadAssembly("Eiffel.dll");
         var loaderType = loaderAssembly.MainModule.Types.First(t => t.Name == "Loader");
         var initMethod = loaderType.Methods.First(m => m.Name == "Initialize");
+        var loadMethod = loaderType.Methods.First(m => m.Name == "Load");
 
         var initRef = module.ImportReference(initMethod);
+        var loadRef = module.ImportReference(loadMethod);
+        var initCall = il.Create(Mono.Cecil.Cil.OpCodes.Call, initRef);
+        var loadCall = il.Create(Mono.Cecil.Cil.OpCodes.Call, loadRef);
 
         Console.WriteLine("Patching: " + mainMethod.FullName);
 
-        il.InsertBefore(firstInstruction, il.Create(Mono.Cecil.Cil.OpCodes.Call, initRef));
+        il.InsertBefore(firstInstruction, initCall);
+        il.InsertAfter(initCall, loadCall);
 
         Console.WriteLine("Instructions after patching:");
         foreach (var instr in mainMethod.Body.Instructions.Take(8))

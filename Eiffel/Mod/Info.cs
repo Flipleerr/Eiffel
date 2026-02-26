@@ -11,6 +11,7 @@ namespace Eiffel.Mod
         public Version MinimumEiffelVErsion { get; set; }
         public List<Dependency> Dependencies { get; set; }
         public string Assembly { get; set; }
+        public string Path { get; set; }
     }
 
     public class Dependency
