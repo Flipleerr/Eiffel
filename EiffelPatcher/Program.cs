@@ -1,4 +1,5 @@
 ﻿using Mono.Cecil;
+using Mono.Cecil.Cil;
 
 internal class Program
 {
@@ -26,7 +27,6 @@ internal class Program
             Console.WriteLine("Already backed up!");
         }
 
-        // patching shits go here
         var resolver = new DefaultAssemblyResolver();
         resolver.AddSearchDirectory(".");
 
@@ -47,19 +47,29 @@ internal class Program
 
         var initRef = module.ImportReference(initMethod);
         var loadRef = module.ImportReference(loadMethod);
-        var initCall = il.Create(Mono.Cecil.Cil.OpCodes.Call, initRef);
-        var loadCall = il.Create(Mono.Cecil.Cil.OpCodes.Call, loadRef);
+        var initCall = il.Create(OpCodes.Call, initRef);
+        var loadCall = il.Create(OpCodes.Call, loadRef);
+
+        var tempfirst = mainMethod.Body.Instructions.First();
 
         Console.WriteLine("Patching: " + mainMethod.FullName);
 
-        il.InsertBefore(firstInstruction, initCall);
-        il.InsertAfter(initCall, loadCall);
-
-        Console.WriteLine("Instructions after patching:");
-        foreach (var instr in mainMethod.Body.Instructions.Take(8))
-            Console.WriteLine($"  {instr}");
+        if (tempfirst.OpCode == OpCodes.Call && 
+            tempfirst.Operand is MethodReference mr && 
+            mr.Name == "Initialize" && 
+            mr.DeclaringType.FullName == "Eiffel.Loader")
+        {
+            Console.WriteLine("Already patched!");
+            return;
+        }
+        else
+        {
+            il.InsertBefore(firstInstruction, initCall);
+            il.InsertAfter(initCall, loadCall);
+        }
 
         asm.Write("Game_patched.exe");
+
         Console.WriteLine("Done!");
     }
 }
