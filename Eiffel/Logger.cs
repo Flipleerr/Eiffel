@@ -1,18 +1,43 @@
-﻿using System;
+﻿using Microsoft.Xna.Framework;
+using System;
 using System.IO;
 
 namespace Eiffel
 {
     public static class Logger
     {
-        public static void Clear(string path)
+        public enum LogLevel
         {
-            File.Delete("eiffel.log");
+            Normal,
+            Error,
+            Warn,
+            Verbose
         }
-        
-        public static void Write(string path, string contents)
+
+        public static void Clear()
         {
-            File.AppendAllText(path, contents);
+            if (File.Exists("eiffel.log"))
+                File.Delete("eiffel.log");
+        }
+
+        public static void Info(string contents)
+        {
+            File.AppendAllText("eiffel.log", "INFO:" + contents);
+        }
+
+        public static void Warn(string contents)
+        {
+            File.AppendAllText("eiffel.log", "WARNING:" + contents);
+        }
+
+        public static void Error(string contents)
+        {
+            File.AppendAllText("eiffel.log", "ERROR:" + contents);
+        }
+
+        public static void Verbose(string contents)
+        {
+            File.AppendAllText("eiffel.log", "VERBOSE:" + contents);
         }
     }
 }
