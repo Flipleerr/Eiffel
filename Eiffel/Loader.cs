@@ -22,8 +22,8 @@ namespace Eiffel
 
         public static void Initialize()
         {
-            Logger.Clear("eiffel.log");
-            Logger.Write("eiffel.log", "Initializing Eiffel!\n");
+            Logger.Clear();
+            Logger.Info("Initializing Eiffel!\n");
 
             GamePath = Directory.GetCurrentDirectory();
         }
@@ -79,20 +79,20 @@ namespace Eiffel
                 Info modInfo = JsonHelper.Deserialize<Info>(json);
                 if (modInfo == null)
                 {
-                    Logger.Write("eiffel.log", $"ERROR: Failed to deserialize manifest at path {manifestPath}! Skipping.\n");
+                    Logger.Error($"ERROR: Failed to deserialize manifest at path {manifestPath}! Skipping.\n");
                     return;
                 }
                 if (modInfo.Name == null || modInfo.ID == null)
                 {
-                    Logger.Write("eiffel.log", $"ERROR: Mod name or ID at path {manifestPath} are empty! Skipping.\n");
+                    Logger.Error($"ERROR: Mod name or ID at path {manifestPath} are empty! Skipping.\n");
                     return;
                 }
                 if (modInfo.Version == null)
                 {
-                    Logger.Write("eiffel.log", $"ERROR: Mod version at path {manifestPath} is empty! Skipping.\n");
+                    Logger.Error($"ERROR: Mod version at path {manifestPath} is empty! Skipping.\n");
                 }
 
-                Logger.Write("eiffel.log", $"Successfully loaded {modInfo.Name} (ID: {modInfo.ID})!\n");
+                Logger.Info($"Successfully loaded {modInfo.Name} version {modInfo.Version}!\n");
                 ModList.Add(modInfo.ID, modInfo);
             }
         }
