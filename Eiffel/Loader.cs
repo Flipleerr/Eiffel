@@ -1,9 +1,10 @@
 ﻿using System;
 using System.IO;
-using Eiffel.Mod;
-using Eiffel.Helpers;
 using System.Collections.Generic;
 using System.Linq;
+using Eiffel.Mod;
+using Eiffel.Mod.Content;
+using Eiffel.Helpers;
 
 namespace Eiffel
 {
@@ -15,7 +16,7 @@ namespace Eiffel
         public static string GamePath { get; internal set; }
         public static string ModPath { get; internal set; }
 
-        internal static Dictionary<string, Info> ModList = new Dictionary<string, Info>();
+        internal static Dictionary<string, Mod.Mod> ModList = new Dictionary<string, Mod.Mod>();
 
         public static string IgnoreListPath { get; set; }
         internal static HashSet<string> IgnoreList = new HashSet<string>();
@@ -59,7 +60,10 @@ namespace Eiffel
                 .ToArray();
 
             foreach (string dir in directories)
+            {
+                Logger.Verbose($"Loading {dir}!\n");
                 LoadDirectory(Path.Combine(ModPath, dir));
+            }
         }
 
         static bool ShouldLoad(string path)
@@ -72,28 +76,39 @@ namespace Eiffel
 
         static void LoadDirectory(string path)
         {
+            Mod.Mod mod = new Mod.Mod();
+
             string manifestPath = Path.Combine(path, "eiffel.json");
             if (File.Exists(manifestPath))
             {
                 string json = File.ReadAllText(manifestPath);
-                Info modInfo = JsonHelper.Deserialize<Info>(json);
-                if (modInfo == null)
+                mod.Info = JsonHelper.Deserialize<ModInfo>(json);
+                if (mod.Info == null)
                 {
                     Logger.Error($"ERROR: Failed to deserialize manifest at path {manifestPath}! Skipping.\n");
                     return;
                 }
-                if (modInfo.Name == null || modInfo.ID == null)
+                if (mod.Info.Name == null || mod.Info.ID == null)
                 {
                     Logger.Error($"ERROR: Mod name or ID at path {manifestPath} are empty! Skipping.\n");
                     return;
                 }
-                if (modInfo.Version == null)
+                if (mod.Info.Version == null)
                 {
                     Logger.Error($"ERROR: Mod version at path {manifestPath} is empty! Skipping.\n");
                 }
 
-                Logger.Info($"Successfully loaded {modInfo.Name} version {modInfo.Version}!\n");
-                ModList.Add(modInfo.ID, modInfo);
+                Logger.Info($"Successfully loaded {mod.Info.Name} version {mod.Info.Version}!\n");
+
+                string assemblyPath = Path.Combine(path, mod.Info.Assembly);
+
+                Logger.Verbose($"Loading assembly from {assemblyPath}!");
+
+                mod.Assembly = new AssemblyContent(path, assemblyPath);
+
+                mod.Assembly.LoadAssembly(assemblyPath);
+
+                ModList.Add(mod.Info.ID, mod);
             }
         }
     }

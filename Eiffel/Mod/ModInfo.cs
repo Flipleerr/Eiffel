@@ -3,10 +3,11 @@ using System.Collections.Generic;
 
 namespace Eiffel.Mod
 {
-    public class Info
+    public class ModInfo
     {
         public string Name { get; set; }
         public string ID { get; set; }
+        public string Author { get; set; }
         public Version Version { get; set; } // use semantic versioning!!!
         public Version MinimumEiffelVErsion { get; set; }
         public List<Dependency> Dependencies { get; set; }
