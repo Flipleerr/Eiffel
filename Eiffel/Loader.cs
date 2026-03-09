@@ -2,9 +2,11 @@
 using System.IO;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Eiffel.Mod;
 using Eiffel.Mod.Content;
 using Eiffel.Helpers;
+using NBug;
 
 namespace Eiffel
 {
@@ -23,6 +25,15 @@ namespace Eiffel
 
         public static void Initialize()
         {
+            // nuke NBug, it complains about Steamworks and crashes the entire game
+            AppDomain.CurrentDomain.UnhandledException -= NBug.Handler.UnhandledException;
+            AppDomain.CurrentDomain.UnhandledException += (s, e) =>
+            {
+                Logger.Error($"Unhandled exception: {e.ExceptionObject}\n");
+            };
+
+            AppDomain.CurrentDomain.AssemblyResolve += EiffelDependencyResolver;
+
             Logger.Clear();
             Logger.Info("Initializing Eiffel!\n");
 
@@ -76,40 +87,122 @@ namespace Eiffel
 
         static void LoadDirectory(string path)
         {
-            Mod.Mod mod = new Mod.Mod();
-
             string manifestPath = Path.Combine(path, "eiffel.json");
+            ModInfo tempInfo = new ModInfo();
+
             if (File.Exists(manifestPath))
             {
                 string json = File.ReadAllText(manifestPath);
-                mod.Info = JsonHelper.Deserialize<ModInfo>(json);
-                if (mod.Info == null)
+                tempInfo = JsonHelper.Deserialize<ModInfo>(json);
+                if (tempInfo == null)
                 {
-                    Logger.Error($"ERROR: Failed to deserialize manifest at path {manifestPath}! Skipping.\n");
+                    Logger.Error($"Failed to deserialize manifest at path {manifestPath}! Skipping.\n");
                     return;
                 }
-                if (mod.Info.Name == null || mod.Info.ID == null)
+                if (tempInfo.Name == null || tempInfo.ID == null)
                 {
-                    Logger.Error($"ERROR: Mod name or ID at path {manifestPath} are empty! Skipping.\n");
+                    Logger.Error($"Mod name or ID at path {manifestPath} are empty! Skipping.\n");
                     return;
                 }
-                if (mod.Info.Version == null)
+                if (tempInfo.Version == null)
                 {
-                    Logger.Error($"ERROR: Mod version at path {manifestPath} is empty! Skipping.\n");
+                    Logger.Error($"Mod version at path {manifestPath} is empty! Skipping.\n");
                 }
 
-                Logger.Info($"Successfully loaded {mod.Info.Name} version {mod.Info.Version}!\n");
+                Logger.Info($"Loading {tempInfo.Name} version {tempInfo.Version}!\n");
+            }
+            else
+            {
+                Logger.Error($"No manifest at {manifestPath} exists! Skipping.\n");
+                return;
+            }
 
-                string assemblyPath = Path.Combine(path, mod.Info.Assembly);
+            var assemblyPath = Path.Combine(path, tempInfo.Assembly);
+            Assembly tempAssembly;
+            Type modType;
+            if (File.Exists(assemblyPath))
+            {
+                try
+                {
+                    Logger.Verbose($"Loading assembly at {assemblyPath}!\n");
+                    tempAssembly = AssemblyHelper.LoadAssemblyFromFile(assemblyPath);
+                    Logger.Verbose($"Getting type name for assembly {tempAssembly.GetName()}!\n");
+                    modType = AssemblyHelper.GetModType(tempAssembly);
+                }
+                catch (ReflectionTypeLoadException e)
+                {
+                    foreach (var ex in e.LoaderExceptions)
+                        Logger.Error($"Loader exception: {ex?.Message}\n");
+                    return;
+                }
+                catch (Exception e)
+                {
+                    Logger.Error($"Failed to load assembly! {e}\n");
+                    return;
+                }
+            }
+            else
+            {
+                Logger.Error($"Mod assembly at path {assemblyPath} is empty! Skipping.\n");
+                return;
+            }
 
-                Logger.Verbose($"Loading assembly from {assemblyPath}!");
+            if (modType == null)
+            {
+                Logger.Error($"No valid Mod class found in {assemblyPath}!\n");
+                return;
+            }
 
-                mod.Assembly = new AssemblyContent(path, assemblyPath);
-
-                mod.Assembly.LoadAssembly(assemblyPath);
-
+            try
+            {
+                var mod = (Mod.Mod)Activator.CreateInstance(modType);
+                mod.Info = tempInfo;
+                mod.Assembly = new AssemblyContent(path, tempAssembly);
+                mod.OnLoad();
                 ModList.Add(mod.Info.ID, mod);
             }
+            catch (MissingMethodException e)
+            {
+                Logger.Error($"Missing method! {e}\n");
+                throw;
+            }
+            catch (Exception e)
+            {
+                Logger.Error($"Failed to create a mod instance for {tempInfo.Name}!\n");
+            }
+        }
+
+        private static Assembly EiffelDependencyResolver(object sender, ResolveEventArgs args)
+        {
+            string assemblyName = new AssemblyName(args.Name).Name;
+
+            var loadedAssembly = AppDomain.CurrentDomain.GetAssemblies()
+                .FirstOrDefault(a => a.GetName().Name == assemblyName);
+            if (loadedAssembly != null) return loadedAssembly;
+
+            string requestedPath = args.RequestingAssembly != null
+                ? Path.GetDirectoryName(args.RequestingAssembly.Location)
+                : null;
+
+            List<string> searchPaths = new List<string>
+            {
+                AppDomain.CurrentDomain.BaseDirectory,
+                ModPath,
+                requestedPath
+            };
+
+            foreach (string basePath in searchPaths)
+            {
+                if (string.IsNullOrEmpty(basePath)) continue;
+                string dllPath = Path.Combine(basePath, $"{assemblyName}.dll");
+
+                if (File.Exists(dllPath))
+                {
+                    return AssemblyHelper.LoadAssemblyFromFile(dllPath);
+                }
+            }
+
+            return null;
         }
     }
 }

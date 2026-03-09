@@ -1,36 +1,41 @@
 ﻿using System;
-using Microsoft.Xna.Framework;
+using System.Collections.Generic;
+using System.Reflection;
+using MonoMod.RuntimeDetour;
 using Eiffel.Mod.Content;
 
 namespace Eiffel.Mod
 {
-    public class Mod
+    public abstract class Mod
     {
+        public Mod()
+        {
+            // PLEASE KEEP THIS EMPTY THANKS!!
+        }
+
         public ModInfo Info { get; set; }
         public ModContent Content { get; set; }
         public AssemblyContent Assembly { get;  set; }
 
-        public void OnLoad() { }
-        public void OnUnload() { }
-        public void OnUpdate(GameTime time) { }
+        protected List<Hook> Hooks = new List<Hook>();
 
-        public void Log(Logger.LogLevel level, string contents)
+        public abstract void OnLoad();
+
+        public void OnUnload() 
         {
-            switch (level)
+            foreach (var hook in Hooks)
             {
-                case Logger.LogLevel.Normal:
-                    Logger.Info($"({Info.ID})" + contents);
-                    break;
-                case Logger.LogLevel.Warn:
-                    Logger.Warn($"({Info.ID})" + contents);
-                    break;
-                case Logger.LogLevel.Error:
-                    Logger.Error($"({Info.ID})" + contents);
-                    break;
-                case Logger.LogLevel.Verbose:
-                    Logger.Verbose($"({Info.ID})" + contents);
-                    break;
+                hook.Dispose();
             }
+            Hooks.Clear();
+            Logger.Info($"{Info.Name} has been unloaded!\n");
         }
+
+        public void CreateHook(MethodBase target, Delegate hookDelegate)
+        {
+            Hooks.Add(new Hook(target, hookDelegate));
+        }
+
+        public bool NeedsUpdate => false;
     }
 }

@@ -10,9 +10,9 @@ namespace Eiffel.Mod.Content
         public Assembly AssemblyData;
         public string AssemblyName => AssemblyData.GetName().Name;
 
-        public AssemblyContent(string directory, string dllPath) : base(directory)
+        public AssemblyContent(string directory, Assembly assembly) : base(directory)
         {
-            
+            AssemblyData = assembly;
         }
 
         public void LoadAssembly(string path)
