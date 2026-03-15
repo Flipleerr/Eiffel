@@ -1,12 +1,13 @@
 ﻿using System;
-using System.IO;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using Paris.Engine;
+using MonoMod.RuntimeDetour;
+using Eiffel.Helpers;
 using Eiffel.Mod;
 using Eiffel.Mod.Content;
-using Eiffel.Helpers;
-using NBug;
 
 namespace Eiffel
 {
@@ -20,6 +21,8 @@ namespace Eiffel
 
         internal static Dictionary<string, Mod.Mod> ModList = new Dictionary<string, Mod.Mod>();
 
+        private delegate Stream OpenStreamDelegate(ParisContentManager self, string assetName);
+
         public static string IgnoreListPath { get; set; }
         internal static HashSet<string> IgnoreList = new HashSet<string>();
 
@@ -29,15 +32,20 @@ namespace Eiffel
             AppDomain.CurrentDomain.UnhandledException -= NBug.Handler.UnhandledException;
             AppDomain.CurrentDomain.UnhandledException += (s, e) =>
             {
-                Logger.Error($"Unhandled exception: {e.ExceptionObject}\n");
+                Logger.Error($"Unhandled exception: {e.ExceptionObject}");
             };
 
             AppDomain.CurrentDomain.AssemblyResolve += EiffelDependencyResolver;
 
             Logger.Clear();
-            Logger.Info("Initializing Eiffel!\n");
+            Logger.Info("Initializing Eiffel!");
 
             GamePath = Directory.GetCurrentDirectory();
+
+            // the dirtiest hook of all time:
+            var assetLoadHookTarget = typeof(ParisContentManager).GetMethod("OpenStream", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+            var assetLoadHookDelegate = new Func<OpenStreamDelegate, ParisContentManager, string, Stream>(OpenStreamHook);
+            var assetLoadHook = new Hook(assetLoadHookTarget, assetLoadHookDelegate);
         }
 
         public static void Load()
@@ -72,7 +80,7 @@ namespace Eiffel
 
             foreach (string dir in directories)
             {
-                Logger.Verbose($"Loading {dir}!\n");
+                Logger.Verbose($"Loading {dir}!");
                 LoadDirectory(Path.Combine(ModPath, dir));
             }
         }
@@ -96,24 +104,24 @@ namespace Eiffel
                 tempInfo = JsonHelper.Deserialize<ModInfo>(json);
                 if (tempInfo == null)
                 {
-                    Logger.Error($"Failed to deserialize manifest at path {manifestPath}! Skipping.\n");
+                    Logger.Error($"Failed to deserialize manifest at path {manifestPath}! Skipping.");
                     return;
                 }
                 if (tempInfo.Name == null || tempInfo.ID == null)
                 {
-                    Logger.Error($"Mod name or ID at path {manifestPath} are empty! Skipping.\n");
+                    Logger.Error($"Mod name or ID at path {manifestPath} are empty! Skipping.");
                     return;
                 }
                 if (tempInfo.Version == null)
                 {
-                    Logger.Error($"Mod version at path {manifestPath} is empty! Skipping.\n");
+                    Logger.Error($"Mod version at path {manifestPath} is empty! Skipping.");
                 }
 
-                Logger.Info($"Loading {tempInfo.Name} version {tempInfo.Version}!\n");
+                Logger.Info($"Loading {tempInfo.Name} version {tempInfo.Version}!");
             }
             else
             {
-                Logger.Error($"No manifest at {manifestPath} exists! Skipping.\n");
+                Logger.Error($"No manifest at {manifestPath} exists! Skipping.");
                 return;
             }
 
@@ -124,32 +132,31 @@ namespace Eiffel
             {
                 try
                 {
-                    Logger.Verbose($"Loading assembly at {assemblyPath}!\n");
+                    Logger.Verbose($"Loading assembly at {assemblyPath}!");
                     tempAssembly = AssemblyHelper.LoadAssemblyFromFile(assemblyPath);
-                    Logger.Verbose($"Getting type name for assembly {tempAssembly.GetName()}!\n");
                     modType = AssemblyHelper.GetModType(tempAssembly);
                 }
                 catch (ReflectionTypeLoadException e)
                 {
                     foreach (var ex in e.LoaderExceptions)
-                        Logger.Error($"Loader exception: {ex?.Message}\n");
+                        Logger.Error($"Loader exception: {ex?.Message}");
                     return;
                 }
                 catch (Exception e)
                 {
-                    Logger.Error($"Failed to load assembly! {e}\n");
+                    Logger.Error($"Failed to load assembly! {e}");
                     return;
                 }
             }
             else
             {
-                Logger.Error($"Mod assembly at path {assemblyPath} is empty! Skipping.\n");
+                Logger.Error($"Mod assembly at path {assemblyPath} does not exist! Skipping.");
                 return;
             }
 
             if (modType == null)
             {
-                Logger.Error($"No valid Mod class found in {assemblyPath}!\n");
+                Logger.Error($"No valid Mod class found in {assemblyPath}!");
                 return;
             }
 
@@ -158,18 +165,48 @@ namespace Eiffel
                 var mod = (Mod.Mod)Activator.CreateInstance(modType);
                 mod.Info = tempInfo;
                 mod.Assembly = new AssemblyContent(path, tempAssembly);
+
                 mod.OnLoad();
+
+                mod.Content = new ModContentManager(Path.Combine(path, "Content"));
+                mod.Content.EnumerateAssets();
+                mod.Content.RegisterAssets(mod.Info.ID);
+
                 ModList.Add(mod.Info.ID, mod);
             }
             catch (MissingMethodException e)
             {
-                Logger.Error($"Missing method! {e}\n");
+                Logger.Error($"Missing method! {e}");
                 throw;
             }
             catch (Exception e)
             {
-                Logger.Error($"Failed to create a mod instance for {tempInfo.Name}!\n");
+                Logger.Error($"Failed to create a mod instance for {tempInfo.Name}! {e}");
             }
+        }
+
+        private static bool TryGetModReplacement(string assetName, out string replacement)
+        {
+            foreach (var mod in ModList.Values)
+            {
+                if (mod.Content.Assets.TryGetValue(assetName, out var asset))
+                {
+                    replacement = Path.Combine(
+                        Path.GetDirectoryName(asset.AbsolutePath),
+                        Path.GetFileNameWithoutExtension(asset.AbsolutePath)
+                        );
+                    return true;
+                }
+            }
+            replacement = null;
+            return false;
+        }
+
+        private static Stream OpenStreamHook(OpenStreamDelegate original, ParisContentManager self, string assetName)
+        {
+            if (Loader.TryGetModReplacement(assetName, out string replacement))
+                assetName = replacement;
+            return original(self, assetName);
         }
 
         private static Assembly EiffelDependencyResolver(object sender, ResolveEventArgs args)

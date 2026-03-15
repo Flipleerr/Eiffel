@@ -5,7 +5,7 @@ using System.Reflection;
 
 namespace Eiffel.Mod.Content
 {
-    public class AssemblyContent : ModContent
+    public class AssemblyContent : ModContentManager
     {
         public Assembly AssemblyData;
         public string AssemblyName => AssemblyData.GetName().Name;

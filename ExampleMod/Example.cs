@@ -1,8 +1,10 @@
-﻿using System;
-using System.Reflection;
-using Paris.Game.Menu;
+﻿using Eiffel;
 using Eiffel.Mod;
-using Eiffel;
+using Paris;
+using Paris.Engine.AssetPacks;
+using Paris.Game.Menu;
+using System;
+using System.Reflection;
 
 namespace ExampleMod
 {

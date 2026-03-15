@@ -14,7 +14,7 @@ namespace Eiffel.Mod
         }
 
         public ModInfo Info { get; set; }
-        public ModContent Content { get; set; }
+        public ModContentManager Content { get; set; }
         public AssemblyContent Assembly { get;  set; }
 
         protected List<Hook> Hooks = new List<Hook>();

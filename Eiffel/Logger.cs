@@ -47,12 +47,12 @@ namespace Eiffel
         public static void Verbose(string contents) 
             => Log(LogLevel.Verbose, contents);
 
-        public static void Log(LogLevel level, string contents)
+        public static void Log(LogLevel? level, string contents)
         {
             switch (level)
             {
                 case LogLevel.Normal:
-                    File.AppendAllText("eiffel.log", $"{DateTime.Now} INFO: " + contents);
+                    File.AppendAllText("eiffel.log", $"{DateTime.Now} INFO: " + contents + Environment.NewLine);
 #if DEBUG
                     Console.WriteLine($"{DateTime.Now} INFO: " + contents + Environment.NewLine);
 #endif

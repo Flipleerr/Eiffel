@@ -98,6 +98,10 @@
     <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\packages\Newtonsoft.Json.13.0.4\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
+    <Reference Include="ParisEngine, Version=1.0.0.0, Culture=neutral, processorArchitecture=AMD64">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\lib\ParisEngine.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.IO.Compression" />
@@ -116,7 +120,7 @@
     <Compile Include="Helpers\JsonHelper.cs" />
     <Compile Include="Loader.cs" />
     <Compile Include="Mod\Content\AssemblyContent.cs" />
-    <Compile Include="Mod\Content\ModContent.cs" />
+    <Compile Include="Mod\Content\ModContentManager.cs" />
     <Compile Include="Mod\Mod.cs" />
     <Compile Include="Mod\ModInfo.cs" />
     <Compile Include="Logger.cs" />
