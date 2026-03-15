@@ -1,5 +1,6 @@
 ﻿using Mono.Cecil;
 using Mono.Cecil.Cil;
+using Mono.Cecil.Rocks;
 
 internal class Program
 {
@@ -13,18 +14,19 @@ internal class Program
     {
         Console.WriteLine("Backing up original assemblies...");
 
-        if (!Directory.Exists("Backup"))
+        foreach (string path in assemblyPaths)
         {
-            Directory.CreateDirectory("Backup");
-            foreach (string path in assemblyPaths)
+            if (File.Exists(Path.Combine("Backup", path)))
             {
-                File.Copy(path, Path.Combine("Backup", path));
-                Console.WriteLine("Backed up: " + path);
+                Console.WriteLine($"{path} is already backed up!");
+                break;
             }
-        }
-        else
-        {
-            Console.WriteLine("Already backed up!");
+            else
+            {
+                Directory.CreateDirectory("Backup");
+                File.Copy(path, Path.Combine("Backup", path));
+                Console.WriteLine($"{path} backed up!");
+            }
         }
 
         var resolver = new DefaultAssemblyResolver();
@@ -38,18 +40,21 @@ internal class Program
         var mainMethod = module.EntryPoint;
 
         var il = mainMethod.Body.GetILProcessor();
-        var firstInstruction = mainMethod.Body.Instructions[0];
-
+        
+        var firstInstruction = mainMethod.Body.Instructions.First();
+        
         var loaderAssembly = AssemblyDefinition.ReadAssembly("Eiffel.dll");
         var loaderType = loaderAssembly.MainModule.Types.First(t => t.Name == "Loader");
+
         var initMethod = loaderType.Methods.First(m => m.Name == "Initialize");
         var loadMethod = loaderType.Methods.First(m => m.Name == "Load");
-
+        
         var initRef = module.ImportReference(initMethod);
         var loadRef = module.ImportReference(loadMethod);
+        
         var initCall = il.Create(OpCodes.Call, initRef);
         var loadCall = il.Create(OpCodes.Call, loadRef);
-
+        
         var tempfirst = mainMethod.Body.Instructions.First();
 
         Console.WriteLine("Patching: " + mainMethod.FullName);
