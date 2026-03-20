@@ -19,7 +19,7 @@ internal class Program
             if (File.Exists(Path.Combine("Backup", path)))
             {
                 Console.WriteLine($"{path} is already backed up!");
-                break;
+                continue;
             }
             else
             {
@@ -33,13 +33,14 @@ internal class Program
         resolver.AddSearchDirectory(".");
 
         var readerParams = new ReaderParameters() { AssemblyResolver = resolver };
-        var asm = AssemblyDefinition.ReadAssembly(assemblyPaths[0], readerParams);
+        var gameAsm = AssemblyDefinition.ReadAssembly(assemblyPaths[0], readerParams);
+        var engineAsm = AssemblyDefinition.ReadAssembly(assemblyPaths[1], readerParams);
 
-        var module = asm.MainModule;
+        var module = gameAsm.MainModule;
         var programType = module.Types.First(t => t.Name == "Program");
         var mainMethod = module.EntryPoint;
 
-        var il = mainMethod.Body.GetILProcessor();
+        var mainIlProcessor = mainMethod.Body.GetILProcessor();
         
         var firstInstruction = mainMethod.Body.Instructions.First();
         
@@ -52,8 +53,8 @@ internal class Program
         var initRef = module.ImportReference(initMethod);
         var loadRef = module.ImportReference(loadMethod);
         
-        var initCall = il.Create(OpCodes.Call, initRef);
-        var loadCall = il.Create(OpCodes.Call, loadRef);
+        var initCall = mainIlProcessor.Create(OpCodes.Call, initRef);
+        var loadCall = mainIlProcessor.Create(OpCodes.Call, loadRef);
         
         var tempfirst = mainMethod.Body.Instructions.First();
 
@@ -69,11 +70,38 @@ internal class Program
         }
         else
         {
-            il.InsertBefore(firstInstruction, initCall);
-            il.InsertAfter(initCall, loadCall);
+            mainIlProcessor.InsertBefore(firstInstruction, initCall);
+            mainIlProcessor.InsertAfter(initCall, loadCall);
         }
 
-        asm.Write("Game_patched.exe");
+        gameAsm.Write("Game_patched.exe");
+        gameAsm.Dispose();
+
+        var engineModule = engineAsm.MainModule;
+        var contentManagerType = engineModule.Types.First(t => t.FullName == "Paris.Engine.ParisContentManager");
+        var contentManagerMethod = contentManagerType.Methods.FirstOrDefault(m => m.Name == "OpenStream");
+        var contentManagerIlProcessor = contentManagerMethod.Body.GetILProcessor();
+
+        var contentReplacementMethod = loaderType.Methods.FirstOrDefault(m => m.Name == "TryGetModReplacement");
+        var contentReplacementRef = engineModule.ImportReference(contentReplacementMethod);
+
+        // i guess this works... not very clean though.
+        contentManagerIlProcessor.InsertBefore(
+            contentManagerMethod.Body.Instructions[0], 
+            contentManagerIlProcessor.Create(OpCodes.Ldarg_1));
+        contentManagerIlProcessor.InsertAfter(
+            contentManagerMethod.Body.Instructions[0], 
+            contentManagerIlProcessor.Create(OpCodes.Call, contentReplacementRef));
+        contentManagerIlProcessor.InsertAfter(
+            contentManagerMethod.Body.Instructions[1], 
+            contentManagerIlProcessor.Create(OpCodes.Starg_S, contentManagerMethod.Parameters[0]));
+
+        engineAsm.Write("ParisEngine_patched.dll");
+        engineAsm.Dispose();
+
+        resolver.Dispose();
+        File.Replace("Game_patched.exe", "Game.exe", null);
+        File.Replace("ParisEngine_patched.dll", "ParisEngine.dll", null);
 
         Console.WriteLine("Done!");
     }

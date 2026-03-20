@@ -21,8 +21,6 @@ namespace Eiffel
 
         internal static Dictionary<string, Mod.Mod> ModList = new Dictionary<string, Mod.Mod>();
 
-        private delegate Stream OpenStreamDelegate(ParisContentManager self, string assetName);
-
         public static string IgnoreListPath { get; set; }
         internal static HashSet<string> IgnoreList = new HashSet<string>();
 
@@ -41,11 +39,6 @@ namespace Eiffel
             Logger.Info("Initializing Eiffel!");
 
             GamePath = Directory.GetCurrentDirectory();
-
-            // the dirtiest hook of all time:
-            var assetLoadHookTarget = typeof(ParisContentManager).GetMethod("OpenStream", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
-            var assetLoadHookDelegate = new Func<OpenStreamDelegate, ParisContentManager, string, Stream>(OpenStreamHook);
-            var assetLoadHook = new Hook(assetLoadHookTarget, assetLoadHookDelegate);
         }
 
         public static void Load()
@@ -185,28 +178,21 @@ namespace Eiffel
             }
         }
 
-        private static bool TryGetModReplacement(string assetName, out string replacement)
+        public static string TryGetModReplacement(string assetName)
         {
             foreach (var mod in ModList.Values)
             {
                 if (mod.Content.Assets.TryGetValue(assetName, out var asset))
                 {
-                    replacement = Path.Combine(
+                    string replacement = Path.Combine(
                         Path.GetDirectoryName(asset.AbsolutePath),
                         Path.GetFileNameWithoutExtension(asset.AbsolutePath)
                         );
-                    return true;
+                    return replacement;
                 }
             }
-            replacement = null;
-            return false;
-        }
 
-        private static Stream OpenStreamHook(OpenStreamDelegate original, ParisContentManager self, string assetName)
-        {
-            if (Loader.TryGetModReplacement(assetName, out string replacement))
-                assetName = replacement;
-            return original(self, assetName);
+            return assetName;
         }
 
         private static Assembly EiffelDependencyResolver(object sender, ResolveEventArgs args)
