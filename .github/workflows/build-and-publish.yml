@@ -21,7 +21,7 @@ jobs:
     - name: Set up MSBuild
       uses: microsoft/setup-msbuild@v2
     - name: Restore dependencies
-      run: msbuild -t:restore
+      run: dotnet restore
     - name: Build Debug configuration
       run: msbuild Eiffel.slnx /p:Configuration=Debug /p:Platform=x64
     - name: Build Release configuration
@@ -31,11 +31,11 @@ jobs:
       with:
         name: Eiffel
         path: |
-          "Eiffel/bin/"
+          "Eiffel/bin"
     - name: Upload EiffelPatcher artifacts
       uses: actions/upload-artifact@v4
       with:
         name: EiffelPatcher
         path: |
-          "EiffelPatcher/bin/x64"
+          "EiffelPatcher/bin"
       
