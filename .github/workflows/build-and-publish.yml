@@ -14,14 +14,16 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: Setup .NET
+    - name: Set up .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 10.0.x
     - name: Set up MSBuild
       uses: microsoft/setup-msbuild@v2
+    - name: Set up NuGet
+      uses: NuGet/setup-nuget@v2
     - name: Restore dependencies
-      run: dotnet restore
+      run: nuget restore Eiffel.slnx
     - name: Build Debug configuration
       run: msbuild Eiffel.slnx /p:Configuration=Debug /p:Platform=x64
     - name: Build Release configuration
