@@ -1,0 +1,41 @@
+name: Build and publish
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:
+  
+jobs:
+  build:
+
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 10.0.x
+    - name: Set up MSBuild
+      uses: microsoft/setup-msbuild@v2
+    - name: Restore dependencies
+      run: msbuild -t:restore
+    - name: Build Debug configuration
+      run: msbuild Eiffel.slnx /p:Configuration=Debug /p:Platform=x64
+    - name: Build Release configuration
+      run: msbuild Eiffel.slnx /p:Configuration=Release /p:Platform=x64
+    - name: Upload Eiffel artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: Eiffel
+        path: |
+          "Eiffel/bin/"
+    - name: Upload EiffelPatcher artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: EiffelPatcher
+        path: |
+          "EiffelPatcher/bin/x64"
+      
